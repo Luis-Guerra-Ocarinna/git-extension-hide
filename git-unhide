@@ -1,0 +1,76 @@
+#!/bin/bash
+
+declare -x dbg
+if [ "$dbg" ]; then
+    set -x
+fi
+
+help ()
+{
+    echo "puts, dps escrevo a ajuda lol"
+}
+
+unhide_all_hided ()
+{
+    mapfile -t files < <(git ls-files -v | grep '^[Sh]' | awk '{ print $2 }')
+    unhide "${files[@]}"
+}
+
+unhide ()
+{
+    for file in "$@"; do
+        [ -f "$file" ] || _error_file_does_not_exist "$file"
+        
+        status=$(_file_git_status "$file")
+
+        case "$status" in
+            "S") # was untracked
+                git update-index --no-skip-worktree "$file"
+                git reset -- "$file"
+                ;;
+            "H"|"h")
+                git update-index --no-assume-unchanged "$file"
+                ;;
+        esac
+    done
+}
+
+_file_git_status ()
+{
+    git ls-files -v "$1" | awk '{ print $1 }'
+}
+
+_error_file_does_not_exist ()
+{
+    echo "file: $1"
+    echo "does not exist :/"
+    exit 1
+}
+
+_handle_single_agr ()
+{
+    if [[ $1 = -* ]]; then        
+        case "$1" in
+            "-a")
+                lambda() { unhide_all_hided; }
+                ;;
+            "-h")
+                lambda () { help; }
+                ;;
+            *)
+                help
+                exit 1
+                ;;
+        esac
+    else
+        x1="$1"
+        lambda () { unhide "$x1"; }
+    fi
+}
+
+if  [ $# -eq 1 ] ; then
+    _handle_single_agr "$1"
+    lambda 
+else 
+    unhide "$@"
+fi
